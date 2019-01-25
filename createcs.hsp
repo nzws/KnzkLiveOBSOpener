@@ -1,0 +1,12 @@
+#packopt hide 1
+#packopt name createcs
+#include "hspext.as"
+link = "KnzkLive で配信を始める"
+exe = dirinfo($1001A) + "\\KnzkLiveOBSOpener\\obsopener.exe"
+
+exist exe
+if (strsize == -1) : dialog "メインファイルが見つかりません。", 1, "ショートカット作成" : end
+
+chdir dirinfo($10000)
+fxlink link, exe
+end

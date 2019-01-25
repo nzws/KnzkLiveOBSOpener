@@ -1,0 +1,9 @@
+_FILEVERSION=1.0.0.0
+_PRODUCTVERSION=1.0.0.0
+CompanyName=KnzkDev Team
+FileDescription=KnzkLiveOBSOpener installer
+FileVersion=1.0.0.0
+InternalName=KnzkLiveOBSOpener_installer
+OriginalFilename=openerinstall.exe
+ProductName=KnzkLiveOBSOpener_installer
+ProductVersion=1.0.0.0

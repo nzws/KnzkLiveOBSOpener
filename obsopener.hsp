@@ -1,0 +1,147 @@
+#packopt hide 1
+#packopt name obsopener
+#include "modules/ini.as"
+#include "hspinet.as"
+#include "hspext.as"
+#include "hsp3utf.as"
+#uselib "kernel32.dll"
+#func global GetNativeSystemInfo "GetNativeSystemInfo" sptr
+
+t = "KnzkLiveOBSOpener"
+knzklive = "https://live.knzk.me/"
+config_path = dirinfo(1) + "\\config.ini"
+title t
+
+*start
+ini_setpath config_path
+ini_getsv obs_exe, "basic", "obs_exe"
+if (obs_exe == "") : gosub *findobsdir
+ini_getsv token, "basic", "knzklive_token"
+if (token == "") {
+	dialog "ブラウザを起動します。\nKnzkLiveに表示されているOpenerトークンを次のダイアログに入力してください。", 0, t
+	exec knzklive + "settings#opener-token", , "open"
+	screen 0, 350, 22, 0
+	input token, 250, 22
+	pos 250, 0
+	objsize 100, 22
+	button gosub "トークン確認", *getinfo
+
+*checktokenbt
+	fetch_result = ""
+	repeat
+		if (fetch_result != "") : break
+		await 50
+	loop
+	
+	if (instr(fetch_result, , "ERROR") != -1) {
+		dialog fetch_result, 1, t
+		goto *checktokenbt
+	} else : if (instr(fetch_result, , "OK") != -1) {
+		ini_setpath config_path
+		ini_puts "basic", "knzklive_token", token
+	} else {
+		dialog "予期せぬ結果が返されました。KnzkLiveサーバーに問題が発生している可能性があります。\n詳しくは管理者にお問い合わせください。", 1, t
+		end
+	}
+	dialog "初期設定が完了しました！", 0, t
+	end
+}
+
+// ストリームキー取得
+gosub *getinfo
+if (instr(fetch_result, , "ERROR") != -1) {
+	dialog fetch_result, 1, t
+	if (instr(fetch_result, , "ERROR:NOT_FOUND_TOKEN") != -1) {
+		dialog "トークンを再入力しますか？", 2, t
+		if (stat == 7) : end
+		
+		ini_setpath config_path
+		ini_puts "basic", "knzklive_token", ""
+		goto *start
+	}
+	end
+} else : if (instr(fetch_result, , "OK:STARTED") != -1) {
+	split fetch_result, "#", dum, rtmp_addr, stream_key
+	if (rtmp_addr == "" || stream_key == "") : dialog "サーバー情報を取得できませんでした。", 1, t : end
+} else : if (instr(fetch_result, , "OK:IS_NOT_STARTED") != -1) {
+	// 新規作成を開く
+	exec knzklive + "new", , "open"
+	end
+} else {
+	dialog "予期せぬ結果が返されました。KnzkLiveサーバーに問題が発生している可能性があります。\n詳しくは管理者にお問い合わせください。", 1, t
+	end
+}
+// OBSのini探す
+obs_appdata_dir = dirinfo(65562) + "\\obs-studio"
+obs_global_ini = obs_appdata_dir + "\\global.ini"
+exist obs_global_ini
+if (strsize == -1) : dialog "OBSのglobal.iniが見つかりませんでした。", 1, t : end
+
+ini_setpath obs_global_ini
+ini_getsv obs_profile_dir, "basic", "SceneCollectionFile"
+if (obs_profile_dir == "") : dialog "OBSのSceneCollectionディレクトリが見つかりませんでした。", 1, t : end
+obs_profile_dir = obs_appdata_dir + "\\basic\\profiles\\" + obs_profile_dir
+
+// service.json書き込む
+obs_service_json = obs_profile_dir + "\\service.json"
+exist obs_service_json
+if (strsize == -1) : dialog "OBSのservice.jsonが見つかりませんでした。", 1, t : end
+
+json_data = "{\"settings\":{\"key\":\"" + stream_key + "\",\"server\":\"" + rtmp_addr + "\"},\"type\":\"rtmp_custom\"}"
+notesel json_data
+notesave obs_service_json
+if (strsize <= 0) : dialog "service.jsonの書き込みに失敗しました。", 1, t : end
+
+chdir getpath(obs_exe, 32)
+exec obs_exe
+end
+
+
+// OBSのインストール先を取得
+*findobsdir
+regkey 1, "SOFTWARE\\OBS Studio", 0
+sdim result, 256
+getreg result, "", 1, 256
+if (result == "") {
+	dialog "OBSのインストールディレクトリを見つける事ができませんでした。\n「はい」を押すとファイルを開くダイアログが表示されますので、obs32(または64).exeを指定してください。\n「いいえ」で終了します。", 3, t
+	if (stat == 7) : end
+	dialog "exe", 16, "obs32(または64).exe"
+	if (stat == 0) : end
+	obs_exe = refstr
+} else {
+	// 32bitか64bitか
+	dim bit, 9
+	GetNativeSystemInfo varptr(bit)
+	if (bit == 0) {
+		os_bit = 32
+	} else : if (bit == 6 || bit == 9) {
+		os_bit = 64
+	}
+	obs_exe = result + "\\bin\\" + os_bit + "bit\\obs" + os_bit + ".exe" 
+}
+if (obs_exe == "") : dialog "OBSインストール先ディレクトリが不明です。", 1, t : end
+
+ini_setpath config_path
+ini_puts "basic", "obs_exe", obs_exe
+return
+
+*getinfo
+fetch_url_dir = knzklive + "api/opener/"
+fetch_url_file = "get_info.php?token=" + token
+gosub *fetch
+return
+
+*fetch
+netinit
+neturl fetch_url_dir
+netrequest_get fetch_url_file
+repeat
+	netexec res
+	if res != 0 : break
+	await 50
+loop
+neterror fetch_error
+if (fetch_error != "") : dialog fetch_error, 1, t : end
+netgetv fetch_result
+netterm
+return

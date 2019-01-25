@@ -1,0 +1,28 @@
+#packopt hide 1
+#packopt name openerinstall
+
+#pack "obsopener.exe"
+#pack "createcs.exe"
+#pack "hspinet.dll"
+#pack "hspext.dll"
+
+t = "KnzkLiveOBSOpener インストーラ"
+install_dir = dirinfo($1001A) + "\\KnzkLiveOBSOpener"
+title t
+
+dialog "KnzkLiveOBSOpener をインストールします。よろしいですか？\n※セキュリティ対策ソフトの警告が出た場合は許可してください。", 2, t
+if (stat == 7) : end
+
+exist install_dir + "\\obsopener.exe"
+if (strsize == -1) {
+	 mkdir install_dir
+}
+
+bcopy "obsopener.exe", install_dir + "\\obsopener.exe"
+bcopy "createcs.exe", install_dir + "\\createcs.exe"
+bcopy "hspinet.dll", install_dir + "\\hspinet.dll"
+bcopy "hspext.dll", install_dir + "\\hspext.dll"
+
+exec install_dir + "\\createcs.exe"
+dialog "インストール完了しました！", 0, t
+end
